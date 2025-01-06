@@ -148,3 +148,80 @@ def predict_price(symbol: str, interval: str = "1h", limit: int = 100):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error making prediction: {str(e)}")
+    
+@app.get("/backtest/{symbol}")
+def backtest_model(symbol: str, interval: str = "1h", limit: int = 100):
+    """
+    Backtest the Linear Regression model using historical data.
+    :param symbol: Cryptocurrency pair (e.g., 'BTCUSDT')
+    :param interval: Time interval (e.g., '1h', '1d')
+    :param limit: Number of data points to use for backtesting
+    :return: Backtesting results with metrics and visualization
+    """
+    try:
+        # Fetch and preprocess data
+        candlesticks = client.get_klines(symbol=symbol, interval=interval, limit=limit)
+        data = [
+            {
+                "open_time": c[0],
+                "open": float(c[1]),
+                "high": float(c[2]),
+                "low": float(c[3]),
+                "close": float(c[4]),
+                "volume": float(c[5]),
+                "close_time": c[6],
+            }
+            for c in candlesticks
+        ]
+
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+        df["close_shifted"] = df["close"].shift(-1)  # Next close price
+        df.dropna(inplace=True)
+
+        # Define features (X) and target (y)
+        X = df[["open", "high", "low", "volume"]].values
+        y = df["close_shifted"].values
+
+        # Split into training and test sets
+        split_index = int(0.8 * len(X))  # 80% training, 20% testing
+        X_train, X_test = X[:split_index], X[split_index:]
+        y_train, y_test = y[:split_index], y[split_index:]
+
+        # Train the Linear Regression model
+        model = LinearRegression()
+        model.fit(X_train, y_train)
+
+        # Make predictions on the test set
+        y_pred = model.predict(X_test)
+
+        # Calculate metrics
+        mae = mean_absolute_error(y_test, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
+
+        # Generate a visualization
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(len(y_test)), y_test, label="Actual", color="blue")
+        plt.plot(range(len(y_pred)), y_pred, label="Predicted", color="orange")
+        plt.legend()
+        plt.title("Actual vs Predicted Prices")
+        plt.xlabel("Data Points")
+        plt.ylabel("Price")
+        plt.grid()
+
+        # Save the plot to a Base64 string
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png")
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode("utf-8")
+        buf.close()
+
+        return {
+            "symbol": symbol,
+            "interval": interval,
+            "mae": mae,
+            "mse": mse,
+            "visualization": f"data:image/png;base64,{img_base64}",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error during backtesting: {str(e)}")
