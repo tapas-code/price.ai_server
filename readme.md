@@ -90,6 +90,15 @@ Price.ai supports the following models:
 
 Access the live demo at [price.ai-demo.com](#) (update this with your deployed link [Coming Soon] ).
 
+### Binance Historical Data
+![Binance Historical Data](images/Historical_data.png)
+### Pre-processed Data
+![Preprocessed Data](images/Preprocessed_data.png)
+### Crypto Price Prediction
+![Predicted Price](images/Predicted_price.png)
+### Back-testing
+![BackTesting](images/Backtesting.png)
+
 ## 📚 Documentation
 
 Detailed documentation is available in the `docs/` directory, including:
